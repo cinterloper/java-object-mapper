@@ -1,14 +1,12 @@
 package com.aerospike.mapper.tools;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 
 import javax.validation.constraints.NotNull;
 
-import com.aerospike.client.AerospikeException;
-import com.aerospike.client.IAerospikeClient;
-import com.aerospike.client.Key;
-import com.aerospike.client.Operation;
+import com.aerospike.client.*;
 import com.aerospike.client.policy.BatchPolicy;
 import com.aerospike.client.policy.Policy;
 import com.aerospike.client.policy.QueryPolicy;
@@ -34,6 +32,10 @@ public interface IAeroMapper extends IBaseAeroMapper {
      * @throws AerospikeException an AerospikeException will be thrown in case of an error.
      */
     <T> void save(@NotNull T... objects);
+    IAeroMapper tx();
+    IAeroMapper setTxn(Txn txn);
+
+
 
     /**
      * Save an object in the database. This method will perform a REPLACE on the existing record so any existing
@@ -53,6 +55,7 @@ public interface IAeroMapper extends IBaseAeroMapper {
      * @throws AerospikeException an AerospikeException will be thrown in case of an error.
      */
     <T> void save(@NotNull WritePolicy writePolicy, @NotNull T object, String... binNames);
+
 
     /**
      * Insert an object to the database This uses the RecordExistsAction
@@ -404,12 +407,14 @@ public interface IAeroMapper extends IBaseAeroMapper {
 
     /**
      * Get the IAerospikeClient which was used to create this mapper.
+     *
      * @return the underlying mapper.
      */
     IAerospikeClient getClient();
-    
+
     /**
      * Get the namespace associated with the passed class
+     *
      * @param clazz - the class to retrieve the namespace of
      * @return the namespace
      */
@@ -417,18 +422,20 @@ public interface IAeroMapper extends IBaseAeroMapper {
 
     /**
      * Get the set associated with the passed class
+     *
      * @param clazz - the class to retrieve the set of
      * @return the set
      */
     String getSet(Class<?> clazz);
-    
+
     /**
      * Get the primary id associated with the passed object
      */
     Object getKey(Object obj);
-    
+
     /**
      * Get the Aerospike Key used to read the record associated with the passed key
+     *
      * @param obj - the object to return the key of
      * @return the key which could be used to retrieve this record.
      */

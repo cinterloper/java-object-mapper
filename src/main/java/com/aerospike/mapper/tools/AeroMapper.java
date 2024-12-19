@@ -1,13 +1,7 @@
 package com.aerospike.mapper.tools;
 
-import com.aerospike.client.AerospikeException;
+import com.aerospike.client.*;
 import com.aerospike.client.AerospikeException.ScanTerminated;
-import com.aerospike.client.Bin;
-import com.aerospike.client.IAerospikeClient;
-import com.aerospike.client.Key;
-import com.aerospike.client.Operation;
-import com.aerospike.client.Record;
-import com.aerospike.client.Value;
 import com.aerospike.client.policy.BatchPolicy;
 import com.aerospike.client.policy.Policy;
 import com.aerospike.client.policy.QueryPolicy;
@@ -26,6 +20,7 @@ import javax.validation.constraints.NotNull;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
@@ -33,23 +28,39 @@ public class AeroMapper implements IAeroMapper {
 
     private final IAerospikeClient mClient;
     private final MappingConverter mappingConverter;
+    private Txn txn = null;
 
     private AeroMapper(@NotNull IAerospikeClient client) {
         this.mClient = client;
         this.mappingConverter = new MappingConverter(this, mClient);
     }
 
+
     /**
      * Create a new Builder to instantiate the AeroMapper.
-     * @author tfaulkes
      *
+     * @author tfaulkes
      */
     public static class Builder extends AbstractBuilder<AeroMapper> {
         public Builder(IAerospikeClient client) {
             super(new AeroMapper(client));
             ClassCache.getInstance().setDefaultPolicies(client);
-
         }
+    }
+
+    public AeroMapper tx() {
+        setTxn(new Txn());
+        return this;
+    }
+    public AeroMapper setTxn(Txn txn) {
+        this.txn = txn;
+        return this;
+    }
+
+
+    public void commit() {
+        mClient.commit(txn);
+        this.txn = null;
     }
 
     @Override
@@ -75,6 +86,9 @@ public class AeroMapper implements IAeroMapper {
 
         if (writePolicy == null) {
             writePolicy = generateWritePolicyFromObject(object);
+        }
+        if (this.txn != null) {
+            writePolicy.txn = txn;
         }
 
         String set = entry.getSetName();
@@ -145,7 +159,7 @@ public class AeroMapper implements IAeroMapper {
 
     @Override
     public <T> T readFromDigest(Policy readPolicy, @NotNull Class<T> clazz, @NotNull byte[] digest,
-            boolean resolveDependencies) throws AerospikeException {
+                                boolean resolveDependencies) throws AerospikeException {
         ClassCacheEntry<T> entry = MapperUtils.getEntryAndValidateNamespace(clazz, this);
         Key key = new Key(entry.getNamespace(), digest, entry.getSetName(), null);
         return this.read(readPolicy, clazz, key, entry, resolveDependencies);
@@ -197,7 +211,7 @@ public class AeroMapper implements IAeroMapper {
 
     @Override
     public <T> T[] read(BatchPolicy batchPolicy, @NotNull Class<T> clazz, @NotNull Object[] userKeys,
-            Operation... operations) {
+                        Operation... operations) {
         ClassCacheEntry<T> entry = MapperUtils.getEntryAndValidateNamespace(clazz, this);
         String set = entry.getSetName();
         Key[] keys = new Key[userKeys.length];
@@ -212,9 +226,9 @@ public class AeroMapper implements IAeroMapper {
         return readBatch(batchPolicy, clazz, keys, entry, operations);
     }
 
-    @SuppressWarnings({ "unchecked" })
+    @SuppressWarnings({"unchecked"})
     private <T> T read(Policy readPolicy, @NotNull Class<T> clazz, @NotNull Key key, @NotNull ClassCacheEntry<T> entry,
-            boolean resolveDependencies) {
+                       boolean resolveDependencies) {
         if (readPolicy == null || readPolicy.filterExp == null) {
             Object objectForKey = LoadedObjectResolver.get(key);
             if (objectForKey != null) {
@@ -240,7 +254,7 @@ public class AeroMapper implements IAeroMapper {
 
     @SuppressWarnings("unchecked")
     private <T> T[] readBatch(BatchPolicy batchPolicy, @NotNull Class<T> clazz, @NotNull Key[] keys,
-            @NotNull ClassCacheEntry<T> entry, Operation... operations) {
+                              @NotNull ClassCacheEntry<T> entry, Operation... operations) {
         if (batchPolicy == null) {
             batchPolicy = entry.getBatchPolicy();
         }
@@ -360,7 +374,7 @@ public class AeroMapper implements IAeroMapper {
 
     @Override
     public <T> void scan(ScanPolicy policy, @NotNull Class<T> clazz, @NotNull Processor<T> processor,
-            int recordsPerSecond) {
+                         int recordsPerSecond) {
         ClassCacheEntry<T> entry = MapperUtils.getEntryAndValidateNamespace(clazz, this);
         if (policy == null) {
             policy = entry.getScanPolicy();
@@ -457,7 +471,7 @@ public class AeroMapper implements IAeroMapper {
 
     @Override
     public <T> VirtualList<T> asBackedList(@NotNull Class<?> owningClazz, @NotNull Object key, @NotNull String binName,
-            Class<T> elementClazz) {
+                                           Class<T> elementClazz) {
         return new VirtualList<>(this, owningClazz, key, binName, elementClazz);
     }
 
@@ -505,18 +519,18 @@ public class AeroMapper implements IAeroMapper {
         ClassCacheEntry<?> entry = ClassCache.getInstance().loadClass(clazz, this);
 
         switch (policyType) {
-        case READ:
-            return entry == null ? mClient.getReadPolicyDefault() : entry.getReadPolicy();
-        case WRITE:
-            return entry == null ? mClient.getWritePolicyDefault() : entry.getWritePolicy();
-        case BATCH:
-            return entry == null ? mClient.getBatchPolicyDefault() : entry.getBatchPolicy();
-        case SCAN:
-            return entry == null ? mClient.getScanPolicyDefault() : entry.getScanPolicy();
-        case QUERY:
-            return entry == null ? mClient.getQueryPolicyDefault() : entry.getQueryPolicy();
-        default:
-            throw new UnsupportedOperationException("Provided unsupported policy type: " + policyType);
+            case READ:
+                return entry == null ? mClient.getReadPolicyDefault() : entry.getReadPolicy();
+            case WRITE:
+                return entry == null ? mClient.getWritePolicyDefault() : entry.getWritePolicy();
+            case BATCH:
+                return entry == null ? mClient.getBatchPolicyDefault() : entry.getBatchPolicy();
+            case SCAN:
+                return entry == null ? mClient.getScanPolicyDefault() : entry.getScanPolicy();
+            case QUERY:
+                return entry == null ? mClient.getQueryPolicyDefault() : entry.getQueryPolicy();
+            default:
+                throw new UnsupportedOperationException("Provided unsupported policy type: " + policyType);
         }
     }
 

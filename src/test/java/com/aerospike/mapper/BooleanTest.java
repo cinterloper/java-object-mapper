@@ -2,10 +2,12 @@ package com.aerospike.mapper;
 
 import com.aerospike.client.Key;
 import com.aerospike.client.Record;
+import com.aerospike.client.Txn;
 import com.aerospike.client.policy.Policy;
 import com.aerospike.mapper.annotations.AerospikeKey;
 import com.aerospike.mapper.annotations.AerospikeRecord;
 import com.aerospike.mapper.tools.AeroMapper;
+import com.aerospike.mapper.tools.MapperTx;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -25,6 +27,7 @@ public class BooleanTest extends AeroMapperBaseTest {
         @AerospikeKey
         public int id;
         public Boolean boolValue;
+        public Boolean boolValue2;
     }
 
     @Test
@@ -83,6 +86,39 @@ public class BooleanTest extends AeroMapperBaseTest {
         final Object rawRepresentation = rec.bins.get("boolValue");
         assertEquals(Boolean.class, rawRepresentation.getClass());
     }
+    @Test
+    public void testObjectTransaction() throws JsonProcessingException {
+        UseBoolBin = true;
+        B b = new B();
+        b.boolValue = true;
+        b.id = 1;
+        String config =
+                "---\n" +
+                        "classes:\n" +
+                        "  - class: com.aerospike.mapper.BooleanTest$B\n" +
+                        "    namespace: test\n" +
+                        "    set: B\n" +
+                        "    key:\n" +
+                        "      field: id\n";
+
+        AeroMapper mapper = new AeroMapper.Builder(client).withConfiguration(config).build();
+        mapper.tx();
+        mapper.save(b);
+        b.boolValue2 = false;
+        mapper.save(b);
+        mapper.commit();
+
+        B b2 = mapper.read(B.class, 1);
+
+        assertEquals(b.id, b2.id);
+
+        assertEquals(false,b2.boolValue2);
+        assertEquals(b.boolValue, b2.boolValue);
+        final Record rec = mapper.getClient().get(new Policy(), new Key("test", "B", 1));
+        final Object rawRepresentation = rec.bins.get("boolValue");
+        assertEquals(Boolean.class, rawRepresentation.getClass());
+    }
+
 
     @Test
     public void testObjectByDefault() throws JsonProcessingException {

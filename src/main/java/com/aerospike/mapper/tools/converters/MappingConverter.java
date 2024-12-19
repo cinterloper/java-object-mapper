@@ -235,9 +235,9 @@ public class MappingConverter {
                 // Load the data
                 if (keys.length <= 2) {
                     // Just single-thread these keys for speed
-                    batchPolicyClone.maxConcurrentThreads = 1;
+//                    batchPolicyClone.maxConcurrentThreads = 1;
                 } else {
-                    batchPolicyClone.maxConcurrentThreads = batchPolicy.maxConcurrentThreads;
+//                    batchPolicyClone.maxConcurrentThreads = batchPolicy.maxConcurrentThreads;
                 }
                 Record[] records = aerospikeClient.get(batchPolicyClone, keys);
 
