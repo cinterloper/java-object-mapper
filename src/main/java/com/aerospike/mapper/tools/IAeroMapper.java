@@ -17,6 +17,11 @@ import com.aerospike.mapper.tools.virtuallist.VirtualList;
 
 public interface IAeroMapper extends IBaseAeroMapper {
 
+    IAeroMapper tx();
+
+    IAeroMapper setTxn(Txn txn);
+
+
     /**
      * Save each object in the database. This method will perform a REPLACE on the existing record so any existing
      * data will be overwritten by the data in the passed object. This is a convenience method for
@@ -32,10 +37,6 @@ public interface IAeroMapper extends IBaseAeroMapper {
      * @throws AerospikeException an AerospikeException will be thrown in case of an error.
      */
     <T> void save(@NotNull T... objects);
-    IAeroMapper tx();
-    IAeroMapper setTxn(Txn txn);
-
-
 
     /**
      * Save an object in the database. This method will perform a REPLACE on the existing record so any existing
